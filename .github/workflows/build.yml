@@ -100,8 +100,7 @@ jobs:
         - /mnt/cross-instance-cache:/mnt/cross-instance-cache
         - /var/run/sas:/var/run/sas
     env:
-      CHROMIUM_GIT_AUTH: ${{ secrets.CHROMIUM_GIT_AUTH }}
-      CHROMIUM_GIT_USER: ${{ secrets.CHROMIUM_GIT_USER }}
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
     outputs:
       build-image-sha: ${{ needs.setup.outputs.build-image-sha }}
@@ -129,8 +128,7 @@ jobs:
         - /mnt/cross-instance-cache:/mnt/cross-instance-cache
         - /var/run/sas:/var/run/sas
     env:
-      CHROMIUM_GIT_AUTH: ${{ secrets.CHROMIUM_GIT_AUTH }}
-      CHROMIUM_GIT_USER: ${{ secrets.CHROMIUM_GIT_USER }}
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
       DD_API_KEY: ${{ secrets.DD_API_KEY }}
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_arm=True --custom-var=checkout_arm64=True'
       PATCH_UP_APP_CREDS: ${{ secrets.PATCH_UP_APP_CREDS }}
@@ -159,8 +157,8 @@ jobs:
         - /mnt/win-cache:/mnt/win-cache
         - /var/run/sas:/var/run/sas
     env:
-      CHROMIUM_GIT_AUTH: ${{ secrets.CHROMIUM_GIT_AUTH }}
-      CHROMIUM_GIT_USER: ${{ secrets.CHROMIUM_GIT_USER }}
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
+      CHROMIUM_GIT_COOKIE_WINDOWS_STRING: ${{ secrets.CHROMIUM_GIT_COOKIE_WINDOWS_STRING }}
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_win=True'
       TARGET_OS: 'win'
       ELECTRON_DEPOT_TOOLS_WIN_TOOLCHAIN: '1'
@@ -186,7 +184,7 @@ jobs:
     with:
       target-platform: macos
       target-archs: x64 arm64
-      check-runs-on: macos-14
+      check-runs-on: macos-15
       gn-build-type: testing
     secrets: inherit
 
@@ -221,7 +219,7 @@ jobs:
     uses: ./.github/workflows/pipeline-electron-build-and-test.yml
     needs: checkout-macos
     with:
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       test-runs-on: macos-13
       target-platform: macos
       target-arch: x64
@@ -239,7 +237,7 @@ jobs:
     uses: ./.github/workflows/pipeline-electron-build-and-test.yml
     needs: checkout-macos
     with:
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       test-runs-on: macos-14
       target-platform: macos
       target-arch: arm64

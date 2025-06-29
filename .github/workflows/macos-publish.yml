@@ -28,8 +28,7 @@ jobs:
         - /mnt/cross-instance-cache:/mnt/cross-instance-cache
         - /var/run/sas:/var/run/sas
     env:
-      CHROMIUM_GIT_AUTH: ${{ secrets.CHROMIUM_GIT_AUTH }}
-      CHROMIUM_GIT_USER: ${{ secrets.CHROMIUM_GIT_USER }}
+      CHROMIUM_GIT_COOKIE: ${{ secrets.CHROMIUM_GIT_COOKIE }}
       GCLIENT_EXTRA_ARGS: '--custom-var=checkout_mac=True --custom-var=host_os=mac'
     steps:
     - name: Checkout Electron
@@ -48,7 +47,7 @@ jobs:
     needs: checkout-macos
     with:
       environment: production-release
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       target-platform: macos
       target-arch: x64
       target-variant: darwin
@@ -63,7 +62,7 @@ jobs:
     needs: checkout-macos
     with:
       environment: production-release
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       target-platform: macos
       target-arch: x64
       target-variant: mas
@@ -78,7 +77,7 @@ jobs:
     needs: checkout-macos
     with:
       environment: production-release
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       target-platform: macos
       target-arch: arm64
       target-variant: darwin
@@ -93,7 +92,7 @@ jobs:
     needs: checkout-macos
     with:
       environment: production-release
-      build-runs-on: macos-14-xlarge
+      build-runs-on: macos-15-xlarge
       target-platform: macos
       target-arch: arm64
       target-variant: mas
