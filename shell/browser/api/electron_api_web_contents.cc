@@ -18,6 +18,7 @@
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/id_map.h"
+#include "base/containers/map_util.h"
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/no_destructor.h"
@@ -241,7 +242,7 @@ template <>
 struct Converter<WindowOpenDisposition> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    WindowOpenDisposition val) {
-    std::string disposition = "other";
+    std::string_view disposition = "other";
     switch (val) {
       case WindowOpenDisposition::CURRENT_TAB:
         disposition = "default";
@@ -302,7 +303,7 @@ struct Converter<electron::api::WebContents::Type> {
   static v8::Local<v8::Value> ToV8(v8::Isolate* isolate,
                                    electron::api::WebContents::Type val) {
     using Type = electron::api::WebContents::Type;
-    std::string type;
+    std::string_view type;
     switch (val) {
       case Type::kBackgroundPage:
         type = "backgroundPage";
@@ -863,9 +864,10 @@ WebContents::WebContents(v8::Isolate* isolate,
     // webPreferences does not have a transparent option, so if the window needs
     // to be transparent, that will be set at electron_api_browser_window.cc#L57
     // and we then need to pull it back out and check it here.
-    std::string background_color;
-    options.GetHidden(options::kBackgroundColor, &background_color);
-    bool transparent = ParseCSSColor(background_color) == SK_ColorTRANSPARENT;
+    std::string background_color_str;
+    options.GetHidden(options::kBackgroundColor, &background_color_str);
+    SkColor bc = ParseCSSColor(background_color_str).value_or(SK_ColorWHITE);
+    bool transparent = bc == SK_ColorTRANSPARENT;
 
     content::WebContents::CreateParams params(session->browser_context());
     auto* view = new OffScreenWebContentsView(
@@ -2951,12 +2953,15 @@ void OnGetDeviceNameToUse(base::WeakPtr<content::WebContents> web_contents,
     print_settings.Set(printing::kSettingDpiVertical, dpi.height());
   }
 
-  auto* print_view_manager =
-      PrintViewManagerElectron::FromWebContents(web_contents.get());
+  content::RenderFrameHost* rfh = GetRenderFrameHostToUse(web_contents.get());
+  if (!rfh)
+    return;
+
+  auto* print_view_manager = PrintViewManagerElectron::FromWebContents(
+      content::WebContents::FromRenderFrameHost(rfh));
   if (!print_view_manager)
     return;
 
-  content::RenderFrameHost* rfh = GetRenderFrameHostToUse(web_contents.get());
   print_view_manager->PrintNow(rfh, std::move(print_settings),
                                std::move(print_callback));
 }
@@ -3002,12 +3007,15 @@ void WebContents::Print(gin::Arguments* args) {
   }
 
   if (options.IsEmptyObject()) {
-    auto* print_view_manager =
-        PrintViewManagerElectron::FromWebContents(web_contents());
+    content::RenderFrameHost* rfh = GetRenderFrameHostToUse(web_contents());
+    if (!rfh)
+      return;
+
+    auto* print_view_manager = PrintViewManagerElectron::FromWebContents(
+        content::WebContents::FromRenderFrameHost(rfh));
     if (!print_view_manager)
       return;
 
-    content::RenderFrameHost* rfh = GetRenderFrameHostToUse(web_contents());
     print_view_manager->PrintNow(rfh, std::move(settings), std::move(callback));
     return;
   }
@@ -4002,30 +4010,35 @@ void WebContents::DevToolsSaveToFile(const std::string& url,
                                      const std::string& content,
                                      bool save_as,
                                      bool is_base64) {
-  base::FilePath path;
-  auto it = saved_files_.find(url);
-  if (it != saved_files_.end() && !save_as) {
-    path = it->second;
-  } else {
+  const base::FilePath* path = nullptr;
+
+  if (!save_as)
+    base::FindOrNull(saved_files_, url);
+
+  if (path == nullptr) {
     file_dialog::DialogSettings settings;
     settings.parent_window = owner_window();
     settings.force_detached = offscreen_;
     settings.title = url;
     settings.default_path = base::FilePath::FromUTF8Unsafe(url);
-    if (!file_dialog::ShowSaveDialogSync(settings, &path)) {
-      inspectable_web_contents_->CallClientFunction(
-          "DevToolsAPI", "canceledSaveURL", base::Value(url));
-      return;
+    if (auto new_path = file_dialog::ShowSaveDialogSync(settings)) {
+      auto [iter, _] = saved_files_.try_emplace(url, std::move(*new_path));
+      path = &iter->second;
     }
   }
 
-  saved_files_[url] = path;
+  if (path == nullptr) {
+    inspectable_web_contents_->CallClientFunction(
+        "DevToolsAPI", "canceledSaveURL", base::Value{url});
+    return;
+  }
+
   // Notify DevTools.
   inspectable_web_contents_->CallClientFunction(
-      "DevToolsAPI", "savedURL", base::Value(url),
-      base::Value(path.AsUTF8Unsafe()));
+      "DevToolsAPI", "savedURL", base::Value{url},
+      base::Value{path->AsUTF8Unsafe()});
   file_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&WriteToFile, path, content, is_base64));
+      FROM_HERE, base::BindOnce(&WriteToFile, *path, content, is_base64));
 }
 
 void WebContents::DevToolsAppendToFile(const std::string& url,

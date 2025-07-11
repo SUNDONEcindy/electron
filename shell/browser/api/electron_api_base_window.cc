@@ -362,7 +362,8 @@ void BaseWindow::SetContentView(gin::Handle<View> view) {
 }
 
 void BaseWindow::CloseImmediately() {
-  window_->CloseImmediately();
+  if (!window_->IsClosed())
+    window_->CloseImmediately();
 }
 
 void BaseWindow::Close() {
@@ -655,7 +656,7 @@ bool BaseWindow::IsTabletMode() const {
 }
 
 void BaseWindow::SetBackgroundColor(const std::string& color_name) {
-  SkColor color = ParseCSSColor(color_name);
+  SkColor color = ParseCSSColor(color_name).value_or(SK_ColorWHITE);
   window_->SetBackgroundColor(color);
 }
 
